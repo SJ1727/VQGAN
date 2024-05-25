@@ -1,2 +1,2 @@
 # VQGAN
-Implementation of 
+Implementation of VQGAN in pytorch
