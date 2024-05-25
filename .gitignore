@@ -3,6 +3,16 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+data
+
+checkpoints
+
+temp.py
+
+test_vqgan.pt
+
+runs
+
 # C extensions
 *.so
 
