@@ -132,8 +132,8 @@ for epoch in range(args.epochs):
 
             if step % 50 == 0:
                 # Writing images to Tensorboard
-                writer.add_images("Original Images", images[0, :, :, :], step)
-                writer.add_images("Reconstructed Images", reconstruction[0, :, :, :], step)
+                writer.add_image("Original Images", images[0], step)
+                writer.add_image("Reconstructed Images", reconstruction[0], step)
 
             # Writing losses to Tensorboard
             writer.add_scalar("VQGAN Loss", total_vqgan_loss / averaging_steps, step)
