@@ -138,7 +138,9 @@ for epoch in range(args.epochs):
             # Writing losses to Tensorboard
             writer.add_scalar("VQGAN Loss", total_vqgan_loss / averaging_steps, step)
             writer.add_scalar("Reconstruction Loss", total_vq_loss / averaging_steps, step)
-            writer.add_scalar("Discriminator Loss", total_disc_loss/averaging_steps, step)
+            writer.add_scalar("Discriminator Loss", total_disc_loss / averaging_steps, step)
+            
+            print(f"Step {step} | VQGAN Loss | Reconstruction Loss {total_vq_loss / averaging_steps} | Discriminator Loss {total_disc_loss/averaging_steps}")
 
             averaging_steps = 0
             total_vqgan_loss = 0
