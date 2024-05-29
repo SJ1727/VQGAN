@@ -51,12 +51,16 @@ model = VQGANTransformer(args)
 criterion = nn.CrossEntropyLoss()
 transformer_optim = optim.Adam(model.parameters(), lr=args.learning_rate)
 
+model = model.to(args.device)
+
 step = 0
 
 writer = SummaryWriter(args.tensorboard_session_path)
 
 for i, image in enumerate(training_dataloader):
     step += 1
+    
+    image = image.to(args.device)
 
     transformer_optim.zero_grad()
     
