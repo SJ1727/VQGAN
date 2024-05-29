@@ -140,6 +140,7 @@ class MultiHeadAttention(nn.Module):
         # TODO: Precompute mask       
         mask = torch.ones(logits.size(2), logits.size(3))
         mask = torch.tril(mask, diagonal=0)
+        mask = mask.to(logits.device)
 
         masked_logits = logits.masked_fill(mask == 0, float("-inf"))
         return masked_logits
