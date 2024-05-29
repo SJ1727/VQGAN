@@ -56,6 +56,7 @@ class VQGANTransformer(nn.Module):
         seq[:, 0, :] = self.sos_token
 
         for i in range(size*size):
+            seq = seq.to(self.sos_token.device)
             in_seq = self.positional_encoding(seq)
             out_seq = self.transformer(in_seq)
             distribution = F.softmax(out_seq[:, i, :])
@@ -66,7 +67,7 @@ class VQGANTransformer(nn.Module):
             sampled_index = torch.multinomial(top_k_probs, 1)
             random_index = top_k_indices.gather(-1, sampled_index).squeeze()
 
-            seq[:, i+1, :] = self.vqgan.codebook[random_index]
+            seq[:, i+1, :] = self.vqgan.codebook[random_index].to(self.sos_token.device)
 
         decoder_input = rearrange(seq[:, 1:, :], "b (h w) l-> b l h w", h=size, w=size)
         generated_image = self.vqgan.decode(decoder_input)
