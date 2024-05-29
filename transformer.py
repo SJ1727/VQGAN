@@ -12,7 +12,7 @@ from typing import Optional
 from vqgan import VQGAN
 
 class TransformerConfig:
-    def __init__(self, embed_dim, num_heads=8, num_layers=2, feed_forward_dim=256, feed_forward_dropout=0.1, attention_dropout=0.1, out_dropout=0.1):
+    def __init__(self, embed_dim, num_heads=8, num_layers=2, feed_forward_dim=256, feed_forward_dropout=0.1, attention_dropout=0.1, out_dropout=0.1, device="cpu"):
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.num_layers = num_layers
@@ -20,6 +20,7 @@ class TransformerConfig:
         self.feed_forward_dropout = feed_forward_dropout
         self.attention_dropout = attention_dropout
         self.out_dropout = out_dropout
+        self.device = device
 
 class VQGANTransformer(nn.Module):
     def __init__(self, args):
@@ -32,12 +33,15 @@ class VQGANTransformer(nn.Module):
             feed_forward_dropout=args.feed_forward_dropout,
             attention_dropout=args.attention_dropout,
             out_dropout=args.out_dropout,
+            device=args.device
         )
+        
+        self.top_k = args.top_k
 
         self.transformer = Transformer(config)
         self.fc_out = nn.Linear(args.latent_dim, args.codebook_size)
         
-        self.positional_encoding = PositionalEncoding(args.latent_dim, 257)
+        self.positional_encoding = PositionalEncoding(args.latent_dim, 1025, device=args.device) # Change the number if making much larger images
 
         self.vqgan = VQGAN(args)
         self.vqgan.load_state_dict(torch.load(args.vqgan_path))
@@ -48,7 +52,6 @@ class VQGANTransformer(nn.Module):
         self.sos_token = torch.ones(args.latent_dim) * args.sos_token
 
     def generate(self, size):
-        # TODO: Make it sample from the distribution rather than take the argmax
         seq = torch.zeros(1, size*size + 1, self.sos_token.shape[-1])
         seq[:, 0, :] = self.sos_token
 
@@ -56,8 +59,14 @@ class VQGANTransformer(nn.Module):
             in_seq = self.positional_encoding(seq)
             out_seq = self.transformer(in_seq)
             distribution = F.softmax(out_seq[:, i, :])
-            index = torch.argmax(distribution, dim=-1)
-            seq[:, i+1, :] = self.vqgan.codebook[index]
+
+            # Randomly selecting index from top k
+            top_k_values, top_k_indices = torch.topk(distribution, self.top_k, dim=-1)
+            top_k_probs = top_k_values / top_k_values.sum(dim=-1, keepdim=True)
+            sampled_index = torch.multinomial(top_k_probs, 1)
+            random_index = top_k_indices.gather(-1, sampled_index).squeeze()
+
+            seq[:, i+1, :] = self.vqgan.codebook[random_index]
 
         decoder_input = rearrange(seq[:, 1:, :], "b (h w) l-> b l h w", h=size, w=size)
         generated_image = self.vqgan.decode(decoder_input)
@@ -83,7 +92,7 @@ class Transformer(nn.Module):
         self.encoder = nn.ModuleList([
             TransformerBlock(config)
             for _ in range(config.num_layers)
-        ])
+        ]).to(config.device)
 
     def forward(self, x: torch.tensor) -> torch.tensor:
         for block in self.encoder:
@@ -212,10 +221,10 @@ class FeedForwardLayer(nn.Module):
         return x
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, embed_dim: int, sequence_length: int, dropout: Optional[int]=0.1):
+    def __init__(self, embed_dim: int, sequence_length: int, dropout: Optional[int]=0.1, device="cpu"):
         super(PositionalEncoding, self).__init__()
 
-        self.dropout = nn.Dropout(dropout)
+        self.dropout = nn.Dropout(dropout).to(device)
 
         positions = torch.arange(sequence_length).unsqueeze(1)
         div_term = torch.exp(-(torch.arange(0, embed_dim, 2) * np.log(10000.0) / embed_dim))
@@ -223,6 +232,7 @@ class PositionalEncoding(nn.Module):
         self.positional_encodings = torch.zeros(1, sequence_length, embed_dim)
         self.positional_encodings[0, :, 0::2] = torch.sin(terms)
         self.positional_encodings[0, :, 1::2] = torch.cos(terms)
+        self.positional_encodings = self.positional_encodings.to(device)
 
     def forward(self, x):
         x = x + self.positional_encodings[:, :x.size(1)]

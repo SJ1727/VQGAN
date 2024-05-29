@@ -127,8 +127,8 @@ for epoch in range(args.epochs):
             }
 
             # Saving model and training
-            torch.save(state, args.save_path + rf"/training_checkpoint.pt")
-            torch.save(state["model"], args.save_path + rf"/model_checkpoint.pt")
+            torch.save(state, args.save_path + rf"/training_vqgan_checkpoint.pt")
+            torch.save(state["model"], args.save_path + rf"/model_vqgan_checkpoint.pt")
 
             if step % 50 == 0:
                 # Writing images to Tensorboard
@@ -140,7 +140,7 @@ for epoch in range(args.epochs):
             writer.add_scalar("Reconstruction Loss", total_vq_loss / averaging_steps, step)
             writer.add_scalar("Discriminator Loss", total_disc_loss / averaging_steps, step)
             
-            print(f"Step {step} | VQGAN Loss | Reconstruction Loss {total_vq_loss / averaging_steps} | Discriminator Loss {total_disc_loss/averaging_steps}")
+            print(f"Step {step} | VQGAN Loss {total_vqgan_loss / averaging_steps} | Reconstruction Loss {total_vq_loss / averaging_steps} | Discriminator Loss {total_disc_loss/averaging_steps}")
 
             averaging_steps = 0
             total_vqgan_loss = 0

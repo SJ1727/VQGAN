@@ -9,7 +9,7 @@ from transformer import VQGANTransformer
 import warnings
 from image_dataset import ImageDataset
 from tqdm import tqdm
-import matplotlib.pyplot as plt
+from torch.utils.tensorboard import SummaryWriter
 warnings.filterwarnings('ignore')
 
 parser = argparse.ArgumentParser(description="Transformer")
@@ -24,7 +24,7 @@ parser.add_argument("--beta", type=float, default=0.25, help="Commitment loss sc
 parser.add_argument("--batch-size", type=int, default=16, help="Input batch size for training")
 parser.add_argument("--epochs", type=int, default=100, help="Number of epochs")
 parser.add_argument("--learning-rate", type=float, default=2.25e-05, help="Learning rate")
-parser.add_argument("--checkpoint-path", type=str, default="./checkpoints", help="Path to directory to save checkpoints")
+parser.add_argument("--save-path", type=str, default="./checkpoints", help="Path to directory to save checkpoints")
 parser.add_argument("--vqgan-path", type=str, default=None, help="Path to vqgan")
 parser.add_argument("--images-directory", type=str, default=None, help="Path to image directory")
 parser.add_argument("--num-heads", type=int, default=8, help="Number of attention heads in transformer")
@@ -34,6 +34,8 @@ parser.add_argument("--feed-forward-dropout", type=float, default=0.1, help="Dro
 parser.add_argument("--attention_dropout", type=float, default=0.1, help="Dropout rate in attention layer")
 parser.add_argument("--out-dropout", type=float, default=0.1, help="Dropout rate for the output layer")
 parser.add_argument("--sos-token", type=float, default=1.0, help="Value to be used for sos token")
+parser.add_argument("--tensorboard-session-path", type=str, default=None, help="Path to tensorboard session")
+parser.add_argument("--top-k", type=int, default=50, help="Top k values to be selected when generating a new image")
 
 args = parser.parse_args()
 
@@ -49,7 +51,13 @@ model = VQGANTransformer(args)
 criterion = nn.CrossEntropyLoss()
 transformer_optim = optim.Adam(model.parameters(), lr=args.learning_rate)
 
+step = 0
+
+writer = SummaryWriter(args.tensorboard_session_path)
+
 for i, image in enumerate(training_dataloader):
+    step += 1
+
     transformer_optim.zero_grad()
     
     predictions, actual = model(image)
@@ -60,10 +68,21 @@ for i, image in enumerate(training_dataloader):
     
     transformer_optim.step()
     
-    print(f"Loss: {loss}")
-    
     if i % 10 == 0:
-        image = model.generate(16)
-        plt.imshow((image.squeeze().permute(1, 2, 0).detach().numpy() + 1) / 2)
-        plt.show()
+        # Saving model
+        torch.save(model.state_dict(), args.save_path + rf"/model_transformer_checkpoint.pt")
+        
+        if i % 50 == 0:
+            # Generating new image
+            image = model.generate(16)
+            
+            # Writing image to Tensorboard
+            writer.add_image("Generated Images", image[0], step)
+
+        # Writing loss to Tensorboard
+        writer.add_scalar("Transformer Loss", loss, step)
+        
+        print(f"Step {step} | Loss {loss}")
+
+writer.close()
 
