@@ -47,9 +47,9 @@ class VQGANTransformer(nn.Module):
         self.vqgan.load_state_dict(torch.load(args.vqgan_path))
         self.vqgan = self.vqgan.eval()
         
-        self.one_hot = lambda x: F.one_hot(x, args.codebook_size).to(torch.float32)
+        self.one_hot = lambda x: F.one_hot(x, args.codebook_size).to(torch.float32).to(args.device)
 
-        self.sos_token = torch.ones(args.latent_dim) * args.sos_token
+        self.sos_token = torch.ones(args.latent_dim).to(args.device) * args.sos_token
 
     def generate(self, size):
         seq = torch.zeros(1, size*size + 1, self.sos_token.shape[-1])
